@@ -160,3 +160,18 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+## Bazel related files
+/bazel.iml
+# Ignore all bazel-* symlinks. There is no full list since this can change
+# based on the name of the directory bazel is cloned into.
+/bazel-*
+# Ignore outputs generated during Bazel bootstrapping.
+/output/
+# Ignore jekyll build output.
+/production
+/.sass-cache
+# Bazelisk version file
+.bazelversion
+# User-specific .bazelrc
+user.bazelrc
