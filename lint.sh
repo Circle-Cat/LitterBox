@@ -62,12 +62,29 @@ if [ $1 == "--fix" ]; then
 fi
 
 # Run linters
-bazel build ${args[@]} $@
+bazel --max_idle_secs=10 build ${args[@]} $@
 
-# TODO: Maybe this could be hermetic with bazel run @aspect_bazel_lib//tools:jq or sth
-# jq on windows outputs CRLF which breaks this script. https://github.com/jqlang/jq/issues/92
-valid_reports=$(jq --arg ext .out --raw-output "$filter" "$buildevents" | tr -d '\r')
+JQ_URL="https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64"
+JQ_CHECKSUM="af986793a515d500ab2d35f8d2aecd656e764504b789b66d7e1a0b727a124c44"
+JQ_BIN=$(mktemp)
+trap 'rm -rf -- "$JQ_BIN"' EXIT
 
+if command -v jq &> /dev/null; then
+	JQ_CMD="jq"
+else
+	curl -L -o "$JQ_BIN" "$JQ_URL" || { echo "Download failed! Exiting..."; exit 1; }
+
+	if ! echo "$JQ_CHECKSUM  $JQ_BIN" | sha256sum --check --status; then
+		echo "Checksum verification failed! Exiting..."
+		exit 1
+	fi
+	chmod +x "$JQ_BIN"
+	JQ_CMD="$JQ_BIN"
+fi
+
+valid_reports=$("$JQ_CMD" --arg ext .out --raw-output "$filter" "$buildevents" | tr -d '\r')
+
+has_failure=0
 # Show the results.
 while IFS= read -r report; do
 	# Exclude coverage reports, and check if the output is empty.
@@ -77,11 +94,13 @@ while IFS= read -r report; do
 	fi
 	echo "From ${report}:"
 	cat "${report}"
-	echo
+	if ! grep -q "All checks passed!" "${report}"; then
+		has_failure=1
+	fi
 done <<<"$valid_reports"
 
 if [ -n "$fix" ]; then
-	valid_patches=$(jq --arg ext .patch --raw-output "$filter" "$buildevents" | tr -d '\r')
+	valid_patches=$("$JQ_CMD" --arg ext .patch --raw-output "$filter" "$buildevents" | tr -d '\r')
 	while IFS= read -r patch; do
 		# Exclude coverage, and check if the patch is empty.
 		if [[ "$patch" == *coverage.dat ]] || [[ ! -s "$patch" ]]; then
@@ -106,3 +125,6 @@ if [ -n "$fix" ]; then
 
 	done <<<"$valid_patches"
 fi
+
+# Exit with failure if any report failed
+exit $has_failure
