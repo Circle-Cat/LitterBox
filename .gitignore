@@ -8,7 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -175,3 +174,14 @@ cython_debug/
 .bazelversion
 # User-specific .bazelrc
 user.bazelrc
+
+.history/
+
+# Go
+/bin
+/.go
+/.push-*
+/.container-*
+/.dockerfile-*
+/.licenses*
+/.buildx-initialized
